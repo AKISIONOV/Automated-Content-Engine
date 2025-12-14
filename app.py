@@ -7,7 +7,7 @@ import time
 st.set_page_config(
     page_title="ACE Engine",
     page_icon="⚡",
-    layout="medium"
+    layout="wide"
 )
 
 # --- SIDEBAR: CONTROLS & PROCESS ---
