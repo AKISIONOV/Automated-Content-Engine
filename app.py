@@ -56,7 +56,7 @@ def create_pdf(markdown_content):
         return None
     return pdf_buffer.getvalue()
 
-# 4. ROBUST IMAGE DOWNLOADER
+# 4. ROBUST IMAGE DOWNLOADER (Fixes the Crash)
 def get_image_bytes(prompt_text):
     """
     Downloads image bytes to prevent Streamlit URL crashes.
