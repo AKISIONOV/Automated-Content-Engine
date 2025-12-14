@@ -1,5 +1,6 @@
 import streamlit as st
 import json
+import ast # <--- NEW: Helps parse Python-style lists
 from langchain_openai import ChatOpenAI
 
 # 1. SETUP: Connect to OpenRouter / DeepSeek
@@ -10,7 +11,6 @@ except:
     st.error("🚨 Secrets Missing! Add OPENROUTER_API_KEY and OPENROUTER_BASE_URL to secrets.")
     st.stop()
 
-# We use DeepSeek Chat for high-quality reasoning
 llm = ChatOpenAI(
     model="deepseek/deepseek-chat",
     openai_api_key=api_key,
@@ -18,29 +18,33 @@ llm = ChatOpenAI(
     temperature=0.7
 )
 
-# 2. HELPER: The Text Cleaner
+# 2. HELPER: The Advanced Text Cleaner
 def clean_text(ai_response):
-    """Cleans AI response to ensure pure text output."""
+    """Cleans AI response to ensure pure text output or real Python lists."""
     try:
         content = ai_response.content if hasattr(ai_response, 'content') else ai_response
+        
         if isinstance(content, str):
-            # Attempt to parse JSON if it looks like a list string
             content = content.strip()
+            
+            # If it looks like a list/dict, try to parse it into a real Object
             if content.startswith("[") or content.startswith("{"):
                 try:
-                    return json.loads(content) # Return object if JSON
+                    # Method 1: Try Standard JSON (Double quotes)
+                    return json.loads(content) 
                 except:
-                    pass
+                    try:
+                        # Method 2: Try Python Literal (Single quotes - The Fix for your bug)
+                        return ast.literal_eval(content)
+                    except:
+                        pass # If both fail, return as string
+                        
         return str(content)
     except:
         return str(ai_response)
 
-# 3. HELPER: Token Compressor (DISABLED FOR STABILITY)
+# 3. HELPER: Token Compressor (DISABLED)
 def smart_compress(context, instruction, target_token=500):
-    """
-    Pass-through function. We disabled LLMLingua to prevent 
-    Streamlit Cloud crashes (Out of Memory errors).
-    """
     return context
 
 # =========================================================
@@ -49,6 +53,7 @@ def smart_compress(context, instruction, target_token=500):
 def strategist_node(pain_points, trending_topics):
     st.write("...⚙️ The Strategic Ideation Engine is analyzing...")
     
+    # YOUR ORIGINAL PROMPT (UNCHANGED)
     prompt = f"""
     Role: Act as a viral content strategist and SEO expert for a leading B2B tech publication.
     Think step by step
@@ -105,7 +110,7 @@ def architect_node(selected_idea):
     return clean_text(response)
 
 # =========================================================
-# 🏭 STAGE 3: THE CONTENT FACTORY (Iterative Generation)
+# 🏭 STAGE 3: THE CONTENT FACTORY
 # =========================================================
 def content_factory_node(article_title, outline):
     full_article = f"# {article_title}\n\n"
@@ -127,7 +132,6 @@ def content_factory_node(article_title, outline):
     # --- Prompt 2: Body Section 1 ---
     st.write("...🏭 Factory: Building Section 1 (The Crisis)...")
     context_so_far = f"Title: {article_title}\nIntro: {intro_content}"
-    # Compress context if possible
     compressed_context = smart_compress(context_so_far, "Generate Body Section 1")
     
     body1_prompt = f"""
