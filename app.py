@@ -138,4 +138,3 @@ if st.session_state.step == "writing_done":
     
     final_payload = st.session_state.final_article + "\n\n---\n\n" + st.session_state.seo_kit
     st.download_button("📥 Download Full Kit", final_payload, "ace_article.md", "text/markdown", use_container_width=True)
-
