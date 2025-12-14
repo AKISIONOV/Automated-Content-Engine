@@ -41,6 +41,7 @@ with st.sidebar:
 
 # 4. MAIN APP
 st.title("⚡ ACE: Automated Content Engine")
+st.markdown("### Build viral, expert-level articles in seconds.")
 
 if btn:
     with st.status("🚀 System Running...", expanded=True) as status:
@@ -86,3 +87,4 @@ if btn:
     
     payload = str(full_article) + "\n\n" + str(seo_kit)
     st.download_button("📥 Download", payload, "article.md")
+
