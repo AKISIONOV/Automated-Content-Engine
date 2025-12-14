@@ -1,6 +1,7 @@
 import streamlit as st
 import strategist
 import ast 
+import urllib.parse # <--- NEW IMPORT: For fixing the image URL
 
 # 1. CONFIG
 st.set_page_config(page_title="ACE Engine", page_icon="⚡", layout="wide")
@@ -141,8 +142,18 @@ if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.st
 
 # DISPLAY RESULT
 if st.session_state.step == "writing_done":
-    image_prompt = f"cinematic high quality editorial photo of {niche}, minimal, 8k"
-    st.image(f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){image_prompt}", caption="Cover Art", use_container_width=True)
+    
+    # --- THE FIX FOR THE IMAGE ---
+    # We clean the prompt so it fits in a URL (replace spaces with %20)
+    raw_prompt = f"editorial photo of {niche}, minimal, high quality"
+    encoded_prompt = urllib.parse.quote(raw_prompt) 
+    image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+    
+    try:
+        st.image(image_url, caption="Cover Art", use_container_width=True)
+    except:
+        st.warning("Could not generate image due to high traffic.")
+    # -----------------------------
     
     # SAFETY: Ensure we display Strings, not Lists
     safe_article = str(st.session_state.final_article)
