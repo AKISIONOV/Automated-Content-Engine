@@ -2,74 +2,79 @@
 import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-# 2. Setup the "Chef" (Connect to Gemini via Cloud Secrets)
+# 2. Setup (With Robust Error Handling)
 try:
+    # Try to get the key from Streamlit Cloud Secrets
     api_key = st.secrets["GOOGLE_API_KEY"]
 except:
-    api_key = "LOCAL_KEY_IF_NEEDED"
+    # If secrets are missing, try a local fallback or stop
+    # This prevents the app from crashing immediately if the key is wrong
+    st.error("🚨 API Key missing! Please add GOOGLE_API_KEY to Streamlit Secrets.")
+    st.stop()
 
+# Use the specific 1.5 Flash model (More stable for free tier)
 llm = ChatGoogleGenerativeAI(
     model="gemini-1.5-flash",
     google_api_key=api_key
 )
 
-# --- 🧹 THE CLEANER FUNCTION (Fixes the "Messy" Output) ---
+# --- 🧹 THE CLEANER FUNCTION (Fixes formatting issues) ---
 def clean_text(ai_response):
-    """
-    Takes the raw AI response and extracts just the clean text string.
-    Removes the [{'type': 'text'}] garbage.
-    """
-    content = ai_response.content
-    
-    # If it's already a clean string, just return it
-    if isinstance(content, str):
-        return content
-        
-    # If it's a list (the messy part), extract the text
-    if isinstance(content, list):
-        full_text = ""
-        for part in content:
-            if 'text' in part:
-                full_text += part['text']
-        return full_text
-        
-    # Fallback
-    return str(content)
-# -----------------------------------------------------------
+    try:
+        content = ai_response.content
+        # If it's already a clean string, return it
+        if isinstance(content, str): 
+            return content
+        # If it's a list (the "messy" output), extract just the text
+        if isinstance(content, list):
+            full_text = ""
+            for part in content:
+                if 'text' in part: 
+                    full_text += part['text']
+            return full_text
+        # Fallback
+        return str(content)
+    except:
+        return str(ai_response)
 
-# 3. Define the Function (The Node)
+# --- 🧠 THE NODE FUNCTIONS (With Debugging) ---
+
 def strategist_node(niche, audience):
-    print(f"--- 🧠 The Strategist is thinking about {niche}... ---")
+    st.write("...Strategist connecting to Google...")
     prompt = f"Act as a viral content strategist. Generate 3 catchy blog titles about '{niche}' for an audience of '{audience}'."
     
-    response = llm.invoke(prompt)
-    # USE THE CLEANER HERE
-    return clean_text(response)
+    try:
+        response = llm.invoke(prompt)
+        return clean_text(response)
+    except Exception as e:
+        # THIS IS THE FIX: Print the actual error to the screen
+        st.error(f"❌ Strategist Error: {e}")
+        return "Error: Could not generate strategies. Please check API Quota."
 
-# 4. Define the Architect Function (Node 2)
 def architect_node(strategist_output):
-    print("\n--- 📐 The Architect is analyzing the ideas... ---")
+    st.write("...Architect analyzing...")
     architect_prompt = f"""
     Act as a senior content editor.
     Here are 3 potential article ideas:
     {strategist_output}
     
     Task:
-    1. Select the SINGLE best article idea from the list above.
-    2. Write a comprehensive outline for that article (Introduction, 3 Body Sections, Conclusion).
+    1. Select the SINGLE best article idea.
+    2.  Write a comprehensive outline for that article (Introduction, 3 Body Sections, Conclusion).
     """
     
-    response = llm.invoke(architect_prompt)
-    # USE THE CLEANER HERE
-    return clean_text(response)
+    try:
+        response = llm.invoke(architect_prompt)
+        return clean_text(response)
+    except Exception as e:
+        st.error(f"❌ Architect Error: {e}")
+        return "Error: Could not generate outline."
 
-# 5. Define the Writer Function (Node 3)
 def writer_node(outline):
-    print("\n--- ✍️ The Writer is drafting the story... ---")
+    st.write("...Writer drafting...")
     writer_prompt = f"""
     Act as a professional content writer.
-    
-    Here is an outline for an article:
+    Here is an outline:
     {outline}
     
     Task:
@@ -80,10 +85,12 @@ def writer_node(outline):
     - Use Hashtags and SEO keywords to enhance the article visibility.
     """
     
-    response = llm.invoke(writer_prompt)
-    # USE THE CLEANER HERE
-    return clean_text(response)
+    try:
+        response = llm.invoke(writer_prompt)
+        return clean_text(response)
+    except Exception as e:
+        st.error(f"❌ Writer Error: {e}")
+        return "Error: Could not write article."
 
 if __name__ == "__main__":
-    print("⚠️ NOTE: This script expects to be run by the Streamlit App.")
-
+    print("This script is ready for Streamlit.")
