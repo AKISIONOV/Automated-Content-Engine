@@ -109,7 +109,8 @@ def polish_node(full_draft):
     prompt = f"""
     Generate an SEO Kit for this article.
     1. 5 High-Traffic Keywords
-    2. Meta Description
+    2. Meta Description , X (Twitter)
     3. LinkedIn Post
     """
     return clean_text(llm.invoke(prompt))
+
