@@ -14,7 +14,7 @@ except:
 
 # Use the specific 1.5 Flash model (More stable for free tier)
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
+    model="gemini-1.5-flash-latest",
     google_api_key=api_key
 )
 
@@ -94,3 +94,4 @@ def writer_node(outline):
 
 if __name__ == "__main__":
     print("This script is ready for Streamlit.")
+
