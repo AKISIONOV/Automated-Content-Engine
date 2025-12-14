@@ -12,14 +12,16 @@ except:
     st.error("🚨 Secrets Missing! Add OPENROUTER_API_KEY and OPENROUTER_BASE_URL to secrets.")
     st.stop()
 
+# 2. CONFIGURATION (FIXED FOR 402 ERROR)
 llm = ChatOpenAI(
     model="deepseek/deepseek-chat",
     openai_api_key=api_key,
     openai_api_base=base_url,
-    temperature=0.7
+    temperature=0.7,
+    max_tokens=3000  # <--- CRITICAL FIX: Limits cost requirement so 402 error disappears
 )
 
-# 2. HELPER: The Smart Cleaner (UPDATED)
+# 3. HELPER: The Smart Cleaner
 def clean_text(ai_response, parse_json=False):
     """
     Cleans AI response.
@@ -29,11 +31,9 @@ def clean_text(ai_response, parse_json=False):
     try:
         content = ai_response.content if hasattr(ai_response, 'content') else ai_response
         
-        # If we just want text, return string immediately
         if not parse_json:
             return str(content)
 
-        # If we WANT a list (Strategy Mode), try to parse it
         if isinstance(content, str):
             content = content.strip()
             content = content.replace("```python", "").replace("```json", "").replace("```", "")
@@ -49,10 +49,6 @@ def clean_text(ai_response, parse_json=False):
         return str(content)
     except:
         return str(ai_response)
-
-# 3. HELPER: Compressor (Disabled)
-def smart_compress(context, instruction, target_token=500):
-    return context
 
 # =========================================================
 # 🧬 STAGE 1: STRATEGIST (Needs List Output)
@@ -78,12 +74,9 @@ def strategist_node(pain_points, trending_topics):
     Output Format:
     Return ONLY a Python List of strings, where each string is an idea + rationale. 
     Example: ["Title: X... Rationale: Y...", "Title: A... Rationale: B..."]
-
-    Final Review : Reasoning your Review.
     """
     
     response = llm.invoke(prompt)
-    # ENABLE LIST PARSING HERE
     return clean_text(response, parse_json=True)
 
 # =========================================================
@@ -114,7 +107,6 @@ def architect_node(selected_idea):
     """
     
     response = llm.invoke(prompt)
-    # DISABLE LIST PARSING (Text Only)
     return clean_text(response, parse_json=False)
 
 # =========================================================
@@ -134,7 +126,6 @@ def content_factory_node(article_title, outline):
     Avoid: Technical jargon, fluff.
     Output: Professional, bold keywords.
     """
-    # DISABLE LIST PARSING
     intro_content = clean_text(llm.invoke(intro_prompt), parse_json=False)
     full_article += f"## Introduction\n{intro_content}\n\n"
     
@@ -143,7 +134,7 @@ def content_factory_node(article_title, outline):
     body1_prompt = f"""
     Role: Professional content writer.
     Think step by step
-    Task: Write Body Section 1 (The Crisis of Data Overload).
+    Task: Write Body Section 1 (The Crisis).
     Context to continue from: {article_title} - {intro_content}
     Output: Start with heading. Bold key concepts.
     """
@@ -195,15 +186,13 @@ def content_factory_node(article_title, outline):
 def polish_node(full_draft):
     st.write("...✨ Applying Final Polish & SEO...")
     
-    compressed_draft = smart_compress(full_draft, "Generate SEO", target_token=1000)
-    
     prompt = f"""
     Role: Professional content writer and SEO expert.
     Think step by step
     Task: Review and optimize the article.
     
-    Article Content (Compressed Context): 
-    {compressed_draft}
+    Article Content: 
+    {full_draft[-2000:]}
     
     Deliverables:
     1. 5 High-Value SEO Keywords.
@@ -214,5 +203,4 @@ def polish_node(full_draft):
     """
     
     response = llm.invoke(prompt)
-    # DISABLE LIST PARSING (Text Only)
     return clean_text(response, parse_json=False)
