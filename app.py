@@ -1,9 +1,6 @@
 import streamlit as st
 import strategist
-import urllib.parse
-import requests
-import io
-from PIL import Image
+import urllib.parse  # <--- CRITICAL FIX: Helps fix broken URLs
 
 # 1. CONFIGURATION
 st.set_page_config(
@@ -21,65 +18,53 @@ def apply_theme(theme_choice):
     elif theme_choice == "Hacker Green":
         st.markdown("""<style>.stApp { background-color: #002b36; color: #859900; }</style>""", unsafe_allow_html=True)
 
-# 3. IMAGE GENERATOR (Hugging Face API)
-def generate_image(prompt):
-    """
-    Generates an image using Hugging Face's Free Inference API.
-    Model: StabilityAI Stable Diffusion XL (High Quality, No Watermark)
-    """
-    API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-    
-    # Try to get token, but allow running without it (fallback to pollinations if needed)
-    try:
-        hf_token = st.secrets["HF_TOKEN"]
-        headers = {"Authorization": f"Bearer {hf_token}"}
-        
-        # Enhanced prompt for better quality
-        full_prompt = f"editorial style photo of {prompt}, 8k resolution, highly detailed, professional photography, cinematic lighting, minimal style"
-        
-        response = requests.post(API_URL, headers=headers, json={"inputs": full_prompt})
-        
-        if response.status_code == 200:
-            image_bytes = response.content
-            return Image.open(io.BytesIO(image_bytes))
-        else:
-            return None
-    except:
-        return None
-
-# 4. SIDEBAR CONTROLS
+# 3. SIDEBAR CONTROLS
 with st.sidebar:
     st.title("🎛️ ACE Control")
+    
+    # Theme Selection
     theme = st.selectbox("🎨 Interface Theme", ["Default (System)", "Dark Mode", "Light Mode", "Hacker Green"])
     apply_theme(theme)
     st.divider()
 
+    # Inputs
     st.subheader("📍 Target Parameters")
     niche = st.text_input("Topic / Niche", "Artificial Intelligence")
     audience = st.text_input("Target Audience", "University Students")
     
     st.divider()
+    
+    # The One Button
     generate_btn = st.button("🚀 Launch Auto-Pilot", type="primary", use_container_width=True)
+    
+    st.caption("ACE will analyze, structure, write, and optimize content automatically.")
 
-# 5. MAIN INTERFACE
+# 4. MAIN INTERFACE
 st.title("⚡ ACE: Automated Content Engine")
 st.markdown("### Build viral, expert-level articles in seconds.")
 st.markdown("---")
 
-# 6. EXECUTION LOGIC
+# 5. EXECUTION LOGIC
 if generate_btn:
+    
+    # Create a container for the final result
     result_container = st.container()
     
+    # Use a status container for the live "Thinking" logs
     with st.status("🚀 ACE Systems Engaged...", expanded=True) as status:
         
         # --- STEP 1: STRATEGY ---
         st.write("🧠 PHASE 1: Strategic Analysis...")
         try:
+            # We fetch ideas, but since it's auto-pilot, we just grab the best one automatically
             ideas = strategist.strategist_node(niche, audience)
+            
+            # Smart Selection: If it's a list, take the first. If string, take it all.
             if isinstance(ideas, list) and len(ideas) > 0:
                 best_idea = ideas[0]
             else:
                 best_idea = str(ideas)
+            
             st.info(f"Selected Angle: {str(best_idea)[:80]}...")
         except Exception as e:
             st.error(f"Strategy Error: {e}")
@@ -93,9 +78,10 @@ if generate_btn:
             st.error(f"Architect Error: {e}")
             st.stop()
             
-        # --- STEP 3: WRITING ---
-        st.write("🏭 PHASE 3: Content Generation...")
+        # --- STEP 3: WRITING (THE FACTORY) ---
+        st.write("🏭 PHASE 3: Content Generation (This may take 30-60s)...")
         try:
+            # Create a specific title context for the writer
             title_context = f"{niche} for {audience}"
             full_article = strategist.content_factory_node(title_context, outline)
         except Exception as e:
@@ -109,32 +95,45 @@ if generate_btn:
         except Exception as e:
             st.error(f"Polish Error: {e}")
             st.stop()
-            
-        # --- STEP 5: IMAGE GENERATION (Running in background) ---
-        st.write("🎨 PHASE 5: Generating Visuals...")
-        generated_img = generate_image(niche)
 
         status.update(label="✅ Mission Complete!", state="complete", expanded=False)
 
-    # 7. DISPLAY RESULTS
+    # 6. DISPLAY RESULTS (In the main container)
     with result_container:
         
-        # Display Image (Hugging Face or Fallback)
-        if generated_img:
-            st.image(generated_img, caption=f"AI Generated Art for {niche}", use_container_width=True)
-        else:
-            # Fallback to Pollinations if HF fails or no token
-            safe_prompt = urllib.parse.quote(f"editorial photo of {niche}")
-            st.image(f"https://image.pollinations.ai/prompt/{safe_prompt}", caption="Visuals (Fallback)", use_container_width=True)
+        # --- THE FIX FOR THE IMAGE CRASH ---
+        try:
+            # We "Clean" the prompt so it fits in a URL (replace spaces with %20)
+            raw_prompt = f"editorial photo of {niche}, minimal, high quality"
+            encoded_prompt = urllib.parse.quote(raw_prompt) 
+            image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+            
+            st.image(image_url, caption=f"AI Generated Art for {niche}", use_container_width=True)
+        except:
+            st.warning("⚠️ Could not generate cover image (Network or URL error).")
+        # -----------------------------------
 
+        # The Main Article
         st.subheader("📄 The Article")
         st.markdown(str(full_article))
+        
         st.divider()
+        
+        # The SEO Kit
         st.subheader("📊 SEO Strategy Kit")
         st.markdown(str(seo_kit))
         
+        # Download Button
         final_payload = str(full_article) + "\n\n---\n\n" + str(seo_kit)
-        st.download_button("📥 Download Full Package", final_payload, "ace_content.md", "text/markdown", type="primary", use_container_width=True)
+        st.download_button(
+            label="📥 Download Full Article Package",
+            data=final_payload,
+            file_name="ace_content_package.md",
+            mime="text/markdown",
+            type="primary",
+            use_container_width=True
+        )
 
 else:
+    # Idle State Display
     st.info("👈 Enter your topic in the sidebar and click 'Launch Auto-Pilot' to begin.")
