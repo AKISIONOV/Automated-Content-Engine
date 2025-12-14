@@ -1,9 +1,27 @@
-# 1. Imports
 import streamlit as st
 import json
 from langchain_openai import ChatOpenAI
 
-# 2. Setup: Connect to OpenRouter
+# --- OPTIONAL: LLMLingua for Token Reduction ---
+# We wrap this in a try/except block because it requires heavy libraries (Torch).
+# If it fails (e.g., on a small cloud server), the app will continue without compression.
+COMPRESSION_ENABLED = False
+try:
+    from llmlingua import PromptCompressor
+    # Cache the model so it doesn't reload on every click
+    @st.cache_resource
+    def load_compressor():
+        return PromptCompressor(model_name="microsoft/phi-2", device_map="cpu")
+    
+    compressor = load_compressor()
+    COMPRESSION_ENABLED = True
+    print("✅ LLMLingua Compression Enabled")
+except Exception as e:
+    print(f"⚠️ LLMLingua not loaded (App will run normally without compression): {e}")
+
+# ---------------------------------------------------------
+
+# 1. SETUP: Connect to OpenRouter / DeepSeek
 try:
     api_key = st.secrets["OPENROUTER_API_KEY"]
     base_url = st.secrets["OPENROUTER_BASE_URL"]
@@ -11,109 +29,221 @@ except:
     st.error("🚨 Secrets Missing! Add OPENROUTER_API_KEY and OPENROUTER_BASE_URL to secrets.")
     st.stop()
 
-# 3. Configure the Engine (DeepSeek via OpenRouter)
-# We use 'deepseek/deepseek-chat' as it is generally more stable for content generation
+# We use DeepSeek Chat for high-quality reasoning
 llm = ChatOpenAI(
-    model="deepseek/deepseek-chat", 
+    model="deepseek/deepseek-chat",
     openai_api_key=api_key,
     openai_api_base=base_url,
     temperature=0.7
 )
 
-# --- 🧹 THE ADVANCED CLEANER FUNCTION ---
+# 2. HELPER: The Text Cleaner
 def clean_text(ai_response):
-    """
-    Cleans the AI response, handling raw strings, JSON strings, and lists.
-    """
+    """Cleans AI response to ensure pure text output."""
     try:
-        # Step A: Extract content attribute if it exists
-        if hasattr(ai_response, 'content'):
-            content = ai_response.content
-        else:
-            content = ai_response
-
-        # Step B: Check if it's a string that looks like a list (The sneaky bug!)
+        content = ai_response.content if hasattr(ai_response, 'content') else ai_response
         if isinstance(content, str):
+            # Attempt to parse JSON if it looks like a list string
             content = content.strip()
-            # If it starts with [ or {, it might be JSON text. Try to parse it.
             if content.startswith("[") or content.startswith("{"):
                 try:
-                    # Turn "[{'text':...}]" string into a real Python list
-                    content = json.loads(content)
+                    return json.loads(content) # Return object if JSON
                 except:
-                    # If it fails, it's just normal text. Keep it.
                     pass
-
-        # Step C: Handle Lists (Extract text from parts)
-        if isinstance(content, list):
-            full_text = ""
-            for part in content:
-                if isinstance(part, dict) and 'text' in part:
-                    full_text += part['text']
-                elif isinstance(part, str):
-                    full_text += part
-            return full_text
-            
-        # Step D: Fallback for normal strings
         return str(content)
-
-    except Exception as e:
+    except:
         return str(ai_response)
 
-# --- 🧠 THE NODE FUNCTIONS ---
+# 3. HELPER: Token Compressor
+def smart_compress(context, instruction, target_token=500):
+    """
+    Uses LLMLingua to compress the context if enabled.
+    Otherwise, returns the original context.
+    """
+    if COMPRESSION_ENABLED and context:
+        try:
+            # Compressing the 'context' to save tokens before sending to LLM
+            compressed_prompt = compressor.compress_prompt(
+                context=[context],
+                instruction=instruction,
+                question="Generate the next section based on this context.",
+                target_token=target_token
+            )
+            return compressed_prompt['compressed_prompt']
+        except Exception as e:
+            print(f"Compression failed, using full text: {e}")
+            return context
+    return context
 
-def strategist_node(niche, audience):
-    st.write(f"...Strategist thinking about {niche}...")
-    prompt = f"Act as a viral content strategist. Generate 3 catchy blog titles about '{niche}' for an audience of '{audience}'."
+# =========================================================
+# 🧬 STAGE 1: THE STRATEGIC IDEATION ENGINE
+# =========================================================
+def strategist_node(pain_points, trending_topics):
+    st.write("...⚙️ The Strategic Ideation Engine is analyzing...")
+    
+    prompt = f"""
+    Role: Act as a viral content strategist and SEO expert for a leading B2B tech publication.
+    Think step by step
 
-    try:
-        response = llm.invoke(prompt)
-        return clean_text(response)
-    except Exception as e:
-        st.error(f"❌ Strategist Error: {e}")
-        return "Error: Strategy failed."
-
-def architect_node(strategist_output):
-    st.write("...Architect analyzing...")
-    architect_prompt = f"""
-    Act as a senior content editor.
-    Here are 3 potential article ideas:
-    {strategist_output}
+    Goal: Generate high-performing article ideas that address specific pain points.
+    
+    Input Data:
+    - Pain Points: {pain_points}
+    - Trending Topics: {trending_topics}
     
     Task:
-    1. Select the SINGLE best article idea.
-    2.  Write a comprehensive outline for that article (Introduction, 3 Body Sections, Conclusion).
+    1. Analyze the inputs.
+    2. Synthesize the analyze into best 5 unique article ideas.
+    3. For each idea, provide a one-sentence rationale explaing it strategic value & why it will resonate with the target Audience.
+    
+    Output Format:
+    Return ONLY a Python List of strings, where each string is an idea + rationale. 
+    Example: ["Title: X... Rationale: Y...", "Title: A... Rationale: B..."]
+
+    Final Review : Reasoning your Review.
     """
+    
+    response = llm.invoke(prompt)
+    return clean_text(response)
 
-
-    try:
-        response = llm.invoke(architect_prompt)
-        return clean_text(response)
-    except Exception as e:
-        st.error(f"❌ Architect Error: {e}")
-        return "Error: Architecture failed."
-
-def writer_node(outline):
-    st.write("...Writer drafting...")
-    writer_prompt = f"""
-    Act as a professional content writer.
-    Here is an outline:
-    {outline}
+# =========================================================
+# 📐 STAGE 2: THE STRUCTURAL ARCHITECT
+# =========================================================
+def architect_node(selected_idea):
+    st.write("...📐 The Structural Architect is designing the blueprint...")
+    
+    prompt = f"""
+    Role: Act as a professional content writer and editor expertise in technical field.
+    
+    Article Idea: "{selected_idea}"
     
     Task:
-    Write the FULL article based on this outline.
-    - Use engaging, professional tone.
-    - Use Markdown formatting (headings, bold text).
-    - Expand every bullet point into full paragraphs.
-    - Use Hashtags and SEO keywords to enhance the article visibility.
+    Generate a comprehensive article outline. 
+    Structure:
+    1. Introduction
+    2. Body Section 1: The Problem/Crisis
+    3. Body Section 2: Audience/Strategy
+    4. Body Section 3: Technical Implementation
+    5. Conclusion: Future Outlook
+    
+    Think step by step:
+    - Foundation -> Audience Intelligence -> Narrative Architecture -> Visualization -> Tech Integration -> Delivery -> Impact -> Future Proofing.
+    
+    Avoid: Extremely difficult jargon, useless keywords.
+    Tone: Professional, trustworthy, confidential.
     """
-  
-    try:
-        response = llm.invoke(writer_prompt )
-        return clean_text(response)
-    except Exception as e:
-        st.error(f"❌ Writer Error: {e}")
-        return "Error: Writing failed."
+    
+    response = llm.invoke(prompt)
+    return clean_text(response)
 
-if __name__ == "__main__":
-    print("Ready for Streamlit Deployment (DeepSeek Edition).")
+# =========================================================
+# 🏭 STAGE 3: THE CONTENT FACTORY (Iterative Generation)
+# =========================================================
+def content_factory_node(article_title, outline):
+    full_article = f"# {article_title}\n\n"
+    
+    # --- Prompt 1: The Introduction ---
+    st.write("...🏭 Factory: Forging the Introduction...")
+    intro_prompt = f"""
+    Role: Act as a professional content writer, SEO expert, and design thinker.
+    Think step by step
+    Task: Generate a compelling Introduction for the article: "{article_title}".
+    Context: {outline}
+    Requirement: Hook the reader, define the topic, provide solution preview.
+    Avoid: Technical jargon, fluff.
+    Output: Professional, bold keywords.
+    """
+    intro_content = clean_text(llm.invoke(intro_prompt))
+    full_article += f"## Introduction\n{intro_content}\n\n"
+    
+    # --- Prompt 2: Body Section 1 ---
+    st.write("...🏭 Factory: Building Section 1 (The Crisis)...")
+    context_so_far = f"Title: {article_title}\nIntro: {intro_content}"
+    # Compress context if possible
+    compressed_context = smart_compress(context_so_far, "Generate Body Section 1")
+    
+    body1_prompt = f"""
+    Role: Professional content writer.
+    Think step by step
+    Task: Write Body Section 1 (The Crisis of Data Overload).
+    Context to continue from: {compressed_context}
+    Output: Start with heading. Bold key concepts.
+    """
+    body1_content = clean_text(llm.invoke(body1_prompt))
+    full_article += f"{body1_content}\n\n"
+
+    # --- Prompt 3: Body Section 2 ---
+    st.write("...🏭 Factory: Building Section 2 (Audience)...")
+    context_so_far += f"\nSection 1: {body1_content}"
+    compressed_context = smart_compress(context_so_far, "Generate Body Section 2")
+    
+    body2_prompt = f"""
+    Role: Professional content writer.
+    Think step by step
+    Task: Write Body Section 2 (Audience Intelligence).
+    Context to continue from: {compressed_context}
+    Output: Start with heading. Bold key concepts. Seamless flow.
+    """
+    body2_content = clean_text(llm.invoke(body2_prompt))
+    full_article += f"{body2_content}\n\n"
+
+    # --- Prompt 4: Body Section 3 ---
+    st.write("...🏭 Factory: Building Section 3 (Technical)...")
+    context_so_far += f"\nSection 2: {body2_content}"
+    compressed_context = smart_compress(context_so_far, "Generate Body Section 3")
+    
+    body3_prompt = f"""
+    Role: Professional content writer.
+    Think step by step
+    Task: Write Body Section 3 (Advanced Technical Implementation).
+    Context to continue from: {compressed_context}
+    Output: Start with heading. Bold key concepts. Seamless flow.
+    """
+    body3_content = clean_text(llm.invoke(body3_prompt))
+    full_article += f"{body3_content}\n\n"
+
+    # --- Prompt 5: Conclusion ---
+    st.write("...🏭 Factory: Finalizing Conclusion...")
+    context_so_far += f"\nSection 3: {body3_content}"
+    compressed_context = smart_compress(context_so_far, "Generate Conclusion")
+    
+    conc_prompt = f"""
+    Role: Professional content writer.
+    Think step by step
+    Task: Write the Conclusion (The Future is in Your Hands).
+    Context to continue from: {compressed_context}
+    Requirement: Summarize, Call to Action, Memorable closing.
+    Output: Start with heading. Seamless flow.
+    """
+    conc_content = clean_text(llm.invoke(conc_prompt))
+    full_article += f"{conc_content}\n\n"
+    
+    return full_article
+
+# =========================================================
+# ✨ STAGE 4: THE FINAL POLISH
+# =========================================================
+def polish_node(full_draft):
+    st.write("...✨ Applying Final Polish & SEO...")
+    
+    # We compress the whole article because it's long now
+    compressed_draft = smart_compress(full_draft, "Generate SEO keywords and Social Captions", target_token=1000)
+    
+    prompt = f"""
+    Role: Professional content writer and SEO expert.
+    Think step by step
+    Task: Review and optimize the article.
+    
+    Article Content (Compressed Context): 
+    {compressed_draft}
+    
+    Deliverables:
+    1. 5 High-Value SEO Keywords.
+    2. Meta Description (<160 chars).
+    3. Social Media Captions (LinkedIn, Instagram, X).
+    
+    Format: Use Markdown headings for each deliverable.
+    """
+    
+    response = llm.invoke(prompt)
+    return clean_text(response)
