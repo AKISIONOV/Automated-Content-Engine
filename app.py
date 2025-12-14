@@ -8,28 +8,36 @@ from PIL import Image
 # 1. CONFIG
 st.set_page_config(page_title="ACE Engine", page_icon="⚡", layout="wide")
 
-# 2. IMAGE ENGINE (Robust)
+# 2. IMAGE ENGINE (Robust Download)
 def get_image(prompt_text):
-    """Tries HF first, falls back to Pollinations safely."""
+    """
+    Downloads image bytes directly to prevent Streamlit URL crashes.
+    """
+    safe_prompt = urllib.parse.quote(prompt_text[:100])
     
-    # Clean prompt for URLs
-    safe_prompt = urllib.parse.quote(prompt_text[:100]) # Keep it short for URLs
-    
-    # Method A: Hugging Face (Best Quality)
+    # OPTION A: Hugging Face (Best Quality)
     if "HF_TOKEN" in st.secrets:
         try:
-            API_URL = "[https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0](https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0)"
+            API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
             headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
-            payload = {"inputs": f"editorial photo of {prompt_text}, high quality"}
+            payload = {"inputs": f"editorial photo of {prompt_text}, high quality, minimal"}
             response = requests.post(API_URL, headers=headers, json=payload, timeout=5)
             if response.status_code == 200:
                 return Image.open(io.BytesIO(response.content))
         except:
             pass # Fail silently to fallback
 
-    # Method B: Pollinations (Backup)
-    # We return the URL string, Streamlit handles the rest
-    return f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_prompt}?width=800&height=400&nologo=true"
+    # OPTION B: Pollinations (Fallback)
+    try:
+        # We DOWNLOAD the image here instead of letting Streamlit guess
+        url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=400&nologo=true"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return Image.open(io.BytesIO(response.content))
+    except:
+        return None
+    
+    return None
 
 # 3. SIDEBAR
 with st.sidebar:
@@ -55,13 +63,12 @@ if btn:
             st.error("Strategy Failed. Try a simpler topic.")
             st.stop()
             
-        # 2. Architecture
+        # 2. Architecture (Dynamic)
         try:
-            # Now returns a LIST of unique headers
             headers = strategist.architect_node(best_idea)
             st.write(f"Blueprint: {headers}")
         except:
-            headers = ["The Problem", "The Solution", "Key Examples", "Conclusion"]
+            headers = ["The Challenge", "The Solution", "Key Examples", "Conclusion"]
             
         # 3. Writing
         full_article = strategist.content_factory_node(best_idea, headers)
@@ -76,10 +83,10 @@ if btn:
         status.update(label="Done!", state="complete", expanded=False)
 
     # 5. RESULTS DISPLAY
-    if isinstance(img_result, str):
+    if img_result:
         st.image(img_result, caption="Cover Art", use_container_width=True)
-    elif img_result:
-        st.image(img_result, caption="Cover Art", use_container_width=True)
+    else:
+        st.warning("⚠️ Cover image could not be generated (Network Timeout).")
         
     st.markdown(full_article)
     st.divider()
@@ -87,4 +94,3 @@ if btn:
     
     payload = str(full_article) + "\n\n" + str(seo_kit)
     st.download_button("📥 Download", payload, "article.md")
-
