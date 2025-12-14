@@ -1,7 +1,6 @@
 import streamlit as st
 import strategist
-import time
-import ast
+import ast # CRITICAL IMPORT
 
 # 1. CONFIG
 st.set_page_config(page_title="ACE Engine", page_icon="⚡", layout="wide")
@@ -57,7 +56,7 @@ if pilot_mode == "Auto-Pilot 🚀" and action_btn:
         st.write("🧠 Strategizing...")
         ideas = strategist.strategist_node(niche, audience)
         
-        # Check if ideas is a list; if not, try to fix it or fallback
+        # Safe extraction
         if isinstance(ideas, list) and len(ideas) > 0:
             best_idea = ideas[0]
         else:
@@ -80,18 +79,23 @@ if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.st
     with st.spinner("🧠 Scanning..."):
         raw_ideas = strategist.strategist_node(niche, audience)
         
-        # --- ROBUST LIST CHECKER ---
+        # --- THE FIX: Force String into List ---
         final_list = []
         if isinstance(raw_ideas, list):
             final_list = raw_ideas
         elif isinstance(raw_ideas, str):
-            # Try to parse stringified list
+            # Attempt to rescue the list
             try:
-                final_list = ast.literal_eval(raw_ideas)
-                if not isinstance(final_list, list):
-                    final_list = [raw_ideas]
+                # Find the bracket part only
+                import re
+                list_match = re.search(r"\[.*\]", raw_ideas, re.DOTALL)
+                if list_match:
+                    clean_str = list_match.group(0)
+                    final_list = ast.literal_eval(clean_str)
+                else:
+                    final_list = [raw_ideas] # Fail safe
             except:
-                final_list = [raw_ideas]
+                final_list = [raw_ideas] # Fail safe
         
         st.session_state.generated_ideas = final_list
         st.session_state.step = "strategy_done"
@@ -101,7 +105,8 @@ if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.st
 if pilot_mode == "Manual Control 🕹️" and st.session_state.step == "strategy_done":
     st.info("👇 Select your content strategy:")
     
-    if st.session_state.generated_ideas:
+    # Verify we have a list to display
+    if st.session_state.generated_ideas and isinstance(st.session_state.generated_ideas, list):
         user_choice = st.radio(
             "Available Angles:",
             st.session_state.generated_ideas,
@@ -110,7 +115,11 @@ if pilot_mode == "Manual Control 🕹️" and st.session_state.step == "strategy
         st.session_state.selected_idea_text = user_choice
         st.success("Target Locked. Click 'Write Article' in the sidebar.")
     else:
-        st.error("No ideas generated. Try clicking 'Scan' again.")
+        st.error(f"Error: Ideas format is invalid. Got: {type(st.session_state.generated_ideas)}")
+        st.write(st.session_state.generated_ideas) # Debug view
+        if st.button("Retry Scan"):
+             st.session_state.step = "idle"
+             st.rerun()
 
 # MANUAL LOGIC - Step C: Write
 if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.step == "strategy_done":
@@ -133,7 +142,7 @@ if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.st
 # DISPLAY RESULT
 if st.session_state.step == "writing_done":
     image_prompt = f"cinematic high quality editorial photo of {niche}, minimal, 8k"
-    st.image(f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){image_prompt}", caption="Cover Art", use_container_width=True)
+    st.image(f"https://image.pollinations.ai/prompt/{image_prompt}", caption="Cover Art", use_container_width=True)
     
     st.markdown(st.session_state.final_article)
     st.divider()
