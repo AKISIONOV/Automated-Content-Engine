@@ -16,23 +16,24 @@ def apply_theme(theme_choice):
     elif theme_choice == "Hacker Green":
         st.markdown("""<style>.stApp { background-color: #002b36; color: #859900; } .stButton button {border: 1px solid #859900;}</style>""", unsafe_allow_html=True)
 
-# 3. ROBUST IMAGE DOWNLOADER (Fixes the Crash)
+# 3. SAFE IMAGE DOWNLOADER (The Fix)
 def get_image_bytes(prompt_text):
     """
-    Downloads image bytes to prevent Streamlit URL crashes.
+    Downloads the image data directly. 
+    This prevents Streamlit from crashing on URL timeouts.
     """
     try:
-        # Simplify prompt for URL safety
+        # Simplify prompt to avoid URL errors
         short_prompt = prompt_text[:40]
         safe_prompt = urllib.parse.quote(f"editorial photo of {short_prompt}, high quality")
         
-        # Pollinations URL
-        url = f"https://image.pollinations.ai/prompt/{safe_prompt}?nologo=true&width=1024&height=512"
+        # Pollinations URL (No Logo)
+        url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_prompt}?nologo=true&width=1024&height=512"
         
-        # Download strictly with timeout
+        # Download with a strict timeout
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
-            return response.content # Return raw bytes
+            return response.content # Return the raw image data
     except:
         pass
     return None
@@ -40,7 +41,6 @@ def get_image_bytes(prompt_text):
 # 4. SIDEBAR
 with st.sidebar:
     st.title("🎛️ ACE Control")
-    
     theme = st.selectbox("🎨 Interface Theme", ["Default (System)", "Dark Mode", "Light Mode", "Hacker Green"])
     apply_theme(theme)
     st.divider()
@@ -49,6 +49,7 @@ with st.sidebar:
     audience = st.text_input("Audience", "University Students")
     st.divider()
     
+    # ONE BUTTON TO RULE THEM ALL
     btn = st.button("🚀 Auto-Pilot Launch", type="primary", use_container_width=True)
 
 # 5. MAIN APP
@@ -60,10 +61,11 @@ if btn:
         # 1. Strategy
         try:
             ideas = strategist.strategist_node(niche, audience)
+            # Pick the first idea automatically
             best_idea = ideas[0] if isinstance(ideas, list) else str(ideas)
             st.info(f"Selected Angle: {best_idea[:80]}...")
         except:
-            st.error("Strategy Connection Failed. Using fallback.")
+            st.error("Strategy Failed. Using fallback.")
             best_idea = f"The Future of {niche} for {audience}"
             
         # 2. Architecture
@@ -79,7 +81,7 @@ if btn:
         # 4. Polish
         seo_kit = strategist.polish_node(full_article)
         
-        # 5. Image Generation (Download Bytes)
+        # 5. Image Generation (Parallel)
         st.write("🎨 Generating Visuals...")
         image_bytes = get_image_bytes(niche)
         
@@ -87,7 +89,7 @@ if btn:
 
     # 6. RESULTS DISPLAY
     
-    # Display Image from Bytes (No URL Crash)
+    # Display Image from Bytes (Safe Mode)
     if image_bytes:
         st.image(image_bytes, caption=f"Visual: {niche}", use_container_width=True)
     else:
@@ -98,14 +100,12 @@ if btn:
     with st.expander("View SEO Strategy Kit"):
         st.markdown(seo_kit)
     
-    # 7. DOWNLOAD LOGIC (Markdown Only)
-    full_text_download = f"# {best_idea}\n\n" + full_article + "\n\n---\n\n" + seo_kit
-    
+    # 7. DOWNLOAD
+    payload = str(full_article) + "\n\n---\n\n" + str(seo_kit)
     st.download_button(
-        label="📥 Download Full Article (Markdown)",
-        data=full_text_download,
+        label="📥 Download Article (Markdown)",
+        data=payload,
         file_name="ace_article.md",
-        mime="text/markdown",
         type="primary",
         use_container_width=True
     )
