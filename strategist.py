@@ -1,52 +1,56 @@
 # 1. Imports
 import streamlit as st
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
-# 2. Setup (With Robust Error Handling)
+# 2. Setup: Connect to OpenRouter
 try:
-    # Try to get the key from Streamlit Cloud Secrets
-    api_key = st.secrets["GOOGLE_API_KEY"]
+    api_key = st.secrets["OPENROUTER_API_KEY"]
+    base_url = st.secrets["OPENROUTER_BASE_URL"]
 except:
-    st.error("🚨 API Key missing! Please add GOOGLE_API_KEY to Streamlit Secrets.")
+    st.error("🚨 Secrets Missing! Add OPENROUTER_API_KEY and OPENROUTER_BASE_URL to secrets.")
     st.stop()
 
-# --- CRITICAL FIX: USING THE VERIFIED MODEL NAME ---
-# "gemini-flash-latest" is the alias that appeared in your diagnostic test.
-llm = ChatGoogleGenerativeAI(
-    model="gemini-flash-latest",
-    google_api_key=api_key
+# 3. Configure the Engine (DeepSeek via OpenRouter)
+llm = ChatOpenAI(
+    model="deepseek/deepseek-r1", # You can also try "deepseek/deepseek-chat"
+    openai_api_key=api_key,
+    openai_api_base=base_url,
+    temperature=0.7
 )
 
-# --- 🧹 THE CLEANER FUNCTION (Fixes the "[{...}]" mess) ---
+# --- 🧹 THE CLEANER FUNCTION (Prevents Download Button Crash) ---
 def clean_text(ai_response):
     try:
-        content = ai_response.content
-        
-        # Case 1: It's already perfect text
+        # Check if response is just a string
+        if isinstance(ai_response, str):
+            return ai_response
+            
+        # Check if it is an object with .content
+        if hasattr(ai_response, 'content'):
+            content = ai_response.content
+        else:
+            content = ai_response
+
+        # Logic to clean lists or dictionaries
         if isinstance(content, str): 
             return content
-            
-        # Case 2: It's a list of parts (the "messy" output)
         if isinstance(content, list):
             full_text = ""
             for part in content:
-                # Extract text if it exists, otherwise skip
                 if isinstance(part, dict) and 'text' in part:
                     full_text += part['text']
                 elif isinstance(part, str):
                     full_text += part
             return full_text
             
-        # Case 3: Fallback
         return str(content)
     except Exception as e:
-        # If cleaning fails, return the raw string so we can at least see it
-        return str(ai_response.content)
+        return str(ai_response)
 
 # --- 🧠 THE NODE FUNCTIONS ---
 
 def strategist_node(niche, audience):
-    st.write("...Strategist connecting to Google...")
+    st.write(f"...Strategist thinking about {niche}...")
     prompt = f"Act as a viral content strategist. Generate 3 catchy blog titles about '{niche}' for an audience of '{audience}'."
     
     try:
@@ -73,7 +77,7 @@ def architect_node(strategist_output):
         return clean_text(response)
     except Exception as e:
         st.error(f"❌ Architect Error: {e}")
-        return "Error: Could not generate outline."
+        return "Error: Could not generate outline (Introduction, 3 Body Sections, Conclusion)."
 
 def writer_node(outline):
     st.write("...Writer drafting...")
@@ -98,4 +102,4 @@ def writer_node(outline):
         return "Error: Could not write article."
 
 if __name__ == "__main__":
-    print("This script is ready for Streamlit.")
+    print("Ready for Streamlit Deployment (OpenRouter Edition).")
