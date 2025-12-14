@@ -2,25 +2,6 @@ import streamlit as st
 import json
 from langchain_openai import ChatOpenAI
 
-# --- OPTIONAL: LLMLingua for Token Reduction ---
-# We wrap this in a try/except block because it requires heavy libraries (Torch).
-# If it fails (e.g., on a small cloud server), the app will continue without compression.
-COMPRESSION_ENABLED = False
-try:
-    from llmlingua import PromptCompressor
-    # Cache the model so it doesn't reload on every click
-    @st.cache_resource
-    def load_compressor():
-        return PromptCompressor(model_name="microsoft/phi-2", device_map="cpu")
-    
-    compressor = load_compressor()
-    COMPRESSION_ENABLED = True
-    print("✅ LLMLingua Compression Enabled")
-except Exception as e:
-    print(f"⚠️ LLMLingua not loaded (App will run normally without compression): {e}")
-
-# ---------------------------------------------------------
-
 # 1. SETUP: Connect to OpenRouter / DeepSeek
 try:
     api_key = st.secrets["OPENROUTER_API_KEY"]
@@ -54,25 +35,12 @@ def clean_text(ai_response):
     except:
         return str(ai_response)
 
-# 3. HELPER: Token Compressor
+# 3. HELPER: Token Compressor (DISABLED FOR STABILITY)
 def smart_compress(context, instruction, target_token=500):
     """
-    Uses LLMLingua to compress the context if enabled.
-    Otherwise, returns the original context.
+    Pass-through function. We disabled LLMLingua to prevent 
+    Streamlit Cloud crashes (Out of Memory errors).
     """
-    if COMPRESSION_ENABLED and context:
-        try:
-            # Compressing the 'context' to save tokens before sending to LLM
-            compressed_prompt = compressor.compress_prompt(
-                context=[context],
-                instruction=instruction,
-                question="Generate the next section based on this context.",
-                target_token=target_token
-            )
-            return compressed_prompt['compressed_prompt']
-        except Exception as e:
-            print(f"Compression failed, using full text: {e}")
-            return context
     return context
 
 # =========================================================
