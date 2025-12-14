@@ -1,167 +1,136 @@
 import streamlit as st
 import strategist
-import ast 
-import urllib.parse # <--- NEW IMPORT: For fixing the image URL
+import urllib.parse
 
-# 1. CONFIG
-st.set_page_config(page_title="ACE Engine", page_icon="⚡", layout="wide")
+# 1. CONFIGURATION
+st.set_page_config(
+    page_title="ACE Engine",
+    page_icon="⚡",
+    layout="wide"
+)
 
-# 2. SESSION STATE
-if "step" not in st.session_state: st.session_state.step = "idle"
-if "generated_ideas" not in st.session_state: st.session_state.generated_ideas = []
-if "selected_idea_text" not in st.session_state: st.session_state.selected_idea_text = ""
-if "final_article" not in st.session_state: st.session_state.final_article = ""
-if "seo_kit" not in st.session_state: st.session_state.seo_kit = ""
-
-# 3. THEME ENGINE
+# 2. THEME ENGINE
 def apply_theme(theme_choice):
     if theme_choice == "Dark Mode":
         st.markdown("""<style>.stApp { background-color: #0e1117; color: white; }</style>""", unsafe_allow_html=True)
     elif theme_choice == "Light Mode":
         st.markdown("""<style>.stApp { background-color: #ffffff; color: black; }</style>""", unsafe_allow_html=True)
-    elif theme_choice == "Custom (Green)":
+    elif theme_choice == "Hacker Green":
         st.markdown("""<style>.stApp { background-color: #002b36; color: #859900; }</style>""", unsafe_allow_html=True)
 
-# 4. SIDEBAR
+# 3. SIDEBAR CONTROLS
 with st.sidebar:
     st.title("🎛️ ACE Control")
-    theme = st.selectbox("🎨 Theme", ["Default (System)", "Dark Mode", "Light Mode", "Custom (Green)"])
+    
+    # Theme Selection
+    theme = st.selectbox("🎨 Interface Theme", ["Default (System)", "Dark Mode", "Light Mode", "Hacker Green"])
     apply_theme(theme)
     st.divider()
 
-    st.subheader("1. Strategy Inputs")
+    # Inputs
+    st.subheader("📍 Target Parameters")
     niche = st.text_input("Topic / Niche", "Artificial Intelligence")
-    audience = st.text_input("Audience", "University Students")
+    audience = st.text_input("Target Audience", "University Students")
     
-    st.subheader("2. Pilot Mode")
-    pilot_mode = st.radio("Mode:", ["Auto-Pilot 🚀", "Manual Control 🕹️"])
     st.divider()
     
-    if pilot_mode == "Auto-Pilot 🚀":
-        action_btn = st.button("🚀 Launch Sequence", type="primary", use_container_width=True)
-    else:
-        if st.session_state.step == "idle":
-            action_btn = st.button("🔍 Scan for Ideas", type="primary", use_container_width=True)
-        elif st.session_state.step == "strategy_done":
-            action_btn = st.button("✍️ Write Article", type="primary", use_container_width=True)
-        else:
-            action_btn = st.button("🔄 Start Over", use_container_width=True)
+    # The One Button
+    generate_btn = st.button("🚀 Launch Auto-Pilot", type="primary", use_container_width=True)
+    
+    st.caption("ACE will analyze, structure, write, and optimize content automatically.")
 
-# 5. MAIN CONTENT
+# 4. MAIN INTERFACE
 st.title("⚡ ACE: Automated Content Engine")
+st.markdown("### Build viral, expert-level articles in seconds.")
 st.markdown("---")
 
-# AUTO PILOT LOGIC
-if pilot_mode == "Auto-Pilot 🚀" and action_btn:
-    with st.status("🚀 Auto-Pilot Engaged...", expanded=True) as status:
-        st.write("🧠 Strategizing...")
-        ideas = strategist.strategist_node(niche, audience)
+# 5. EXECUTION LOGIC
+if generate_btn:
+    
+    # Create a container for the final result
+    result_container = st.container()
+    
+    # Use a status container for the live "Thinking" logs
+    with st.status("🚀 ACE Systems Engaged...", expanded=True) as status:
         
-        if isinstance(ideas, list) and len(ideas) > 0:
-            best_idea = ideas[0]
-        else:
-            best_idea = str(ideas)
+        # --- STEP 1: STRATEGY ---
+        st.write("🧠 PHASE 1: Strategic Analysis...")
+        try:
+            # We fetch ideas, but since it's auto-pilot, we just grab the best one automatically
+            ideas = strategist.strategist_node(niche, audience)
             
-        st.write(f"✅ Selected: {str(best_idea)[:50]}...")
-        st.write("📐 Architecting...")
-        outline = strategist.architect_node(best_idea)
-        
-        full_article = strategist.content_factory_node(f"{niche} for {audience}", outline)
-        seo = strategist.polish_node(full_article)
-        
-        st.session_state.final_article = full_article
-        st.session_state.seo_kit = seo
-        st.session_state.step = "writing_done"
-        status.update(label="✨ Done!", state="complete", expanded=False)
+            # Smart Selection: If it's a list, take the first. If string, take it all.
+            if isinstance(ideas, list) and len(ideas) > 0:
+                best_idea = ideas[0]
+            else:
+                best_idea = str(ideas)
+            
+            st.info(f"Selected Angle: {str(best_idea)[:80]}...")
+        except Exception as e:
+            st.error(f"Strategy Error: {e}")
+            st.stop()
 
-# MANUAL LOGIC - Step A: Scan
-if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.step == "idle":
-    with st.spinner("🧠 Scanning..."):
-        raw_ideas = strategist.strategist_node(niche, audience)
-        
-        final_list = []
-        if isinstance(raw_ideas, list):
-            final_list = raw_ideas
-        elif isinstance(raw_ideas, str):
-            try:
-                import re
-                list_match = re.search(r"\[.*\]", raw_ideas, re.DOTALL)
-                if list_match:
-                    clean_str = list_match.group(0)
-                    final_list = ast.literal_eval(clean_str)
-                else:
-                    final_list = [raw_ideas]
-            except:
-                final_list = [raw_ideas]
-        
-        st.session_state.generated_ideas = final_list
-        st.session_state.step = "strategy_done"
-        st.rerun()
+        # --- STEP 2: ARCHITECTURE ---
+        st.write("📐 PHASE 2: Structural Blueprinting...")
+        try:
+            outline = strategist.architect_node(best_idea)
+        except Exception as e:
+            st.error(f"Architect Error: {e}")
+            st.stop()
+            
+        # --- STEP 3: WRITING (THE FACTORY) ---
+        st.write("🏭 PHASE 3: Content Generation (This may take 30-60s)...")
+        try:
+            # Create a specific title context for the writer
+            title_context = f"{niche} for {audience}"
+            full_article = strategist.content_factory_node(title_context, outline)
+        except Exception as e:
+            st.error(f"Writing Error: {e}")
+            st.stop()
 
-# MANUAL LOGIC - Step B: Selection
-if pilot_mode == "Manual Control 🕹️" and st.session_state.step == "strategy_done":
-    st.info("👇 Select your content strategy:")
-    
-    if st.session_state.generated_ideas and isinstance(st.session_state.generated_ideas, list):
-        user_choice = st.radio(
-            "Available Angles:",
-            st.session_state.generated_ideas,
-            index=0
+        # --- STEP 4: POLISHING ---
+        st.write("✨ PHASE 4: SEO & Final Polish...")
+        try:
+            seo_kit = strategist.polish_node(full_article)
+        except Exception as e:
+            st.error(f"Polish Error: {e}")
+            st.stop()
+
+        status.update(label="✅ Mission Complete!", state="complete", expanded=False)
+
+    # 6. DISPLAY RESULTS (In the main container)
+    with result_container:
+        
+        # Dynamic Cover Image
+        try:
+            # Safer URL encoding for images
+            safe_prompt = urllib.parse.quote(f"editorial photo of {niche}, minimal, high quality")
+            image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}"
+            st.image(image_url, caption=f"AI Generated Art for {niche}", use_container_width=True)
+        except:
+            st.warning("Could not load AI cover image.")
+
+        # The Main Article
+        st.subheader("📄 The Article")
+        st.markdown(str(full_article))
+        
+        st.divider()
+        
+        # The SEO Kit
+        st.subheader("📊 SEO Strategy Kit")
+        st.markdown(str(seo_kit))
+        
+        # Download Button
+        final_payload = str(full_article) + "\n\n---\n\n" + str(seo_kit)
+        st.download_button(
+            label="📥 Download Full Article Package",
+            data=final_payload,
+            file_name="ace_content_package.md",
+            mime="text/markdown",
+            type="primary",
+            use_container_width=True
         )
-        st.session_state.selected_idea_text = user_choice
-        st.success("Target Locked. Click 'Write Article' in the sidebar.")
-    else:
-        st.error("Error with ideas format. Please Reset.")
-        if st.button("Reset"):
-            st.session_state.step = "idle"
-            st.rerun()
 
-# MANUAL LOGIC - Step C: Write
-if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.step == "strategy_done":
-    with st.status("✍️ Writing...", expanded=True) as status:
-        target_idea = st.session_state.selected_idea_text
-        
-        st.write("📐 Architecting...")
-        outline = strategist.architect_node(target_idea)
-        
-        # Pass title + audience as simple context string
-        full_article = strategist.content_factory_node(f"{niche} for {audience}", outline)
-        
-        st.write("✨ Polishing...")
-        seo = strategist.polish_node(full_article)
-        
-        st.session_state.final_article = full_article
-        st.session_state.seo_kit = seo
-        st.session_state.step = "writing_done"
-        status.update(label="✨ Done!", state="complete", expanded=False)
-
-# Reset
-if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.step == "writing_done":
-    st.session_state.step = "idle"
-    st.rerun()
-
-# DISPLAY RESULT
-if st.session_state.step == "writing_done":
-    
-    # --- THE FIX FOR THE IMAGE ---
-    # We clean the prompt so it fits in a URL (replace spaces with %20)
-    raw_prompt = f"editorial photo of {niche}, minimal, high quality"
-    encoded_prompt = urllib.parse.quote(raw_prompt) 
-    image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-    
-    try:
-        st.image(image_url, caption="Cover Art", use_container_width=True)
-    except:
-        st.warning("Could not generate image due to high traffic.")
-    # -----------------------------
-    
-    # SAFETY: Ensure we display Strings, not Lists
-    safe_article = str(st.session_state.final_article)
-    safe_seo = str(st.session_state.seo_kit)
-    
-    st.markdown(safe_article)
-    st.divider()
-    st.markdown(safe_seo)
-    
-    final_payload = safe_article + "\n\n---\n\n" + safe_seo
-    st.download_button("📥 Download Full Kit", final_payload, "ace_article.md", "text/markdown", use_container_width=True)
+else:
+    # Idle State Display
+    st.info("👈 Enter your topic in the sidebar and click 'Launch Auto-Pilot' to begin.")
