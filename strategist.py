@@ -1,9 +1,10 @@
 import streamlit as st
 import json
-import ast # <--- CRITICAL FIX: Parses Python-style lists
+import ast  # <--- ONLY CHANGE: Added for fixing the list bug
+import re   # <--- ONLY CHANGE: Added for fixing the list bug
 from langchain_openai import ChatOpenAI
 
-# 1. SETUP: Connect to OpenRouter
+# 1. SETUP: Connect to OpenRouter / DeepSeek
 try:
     api_key = st.secrets["OPENROUTER_API_KEY"]
     base_url = st.secrets["OPENROUTER_BASE_URL"]
@@ -11,6 +12,7 @@ except:
     st.error("🚨 Secrets Missing! Add OPENROUTER_API_KEY and OPENROUTER_BASE_URL to secrets.")
     st.stop()
 
+# We use DeepSeek Chat for high-quality reasoning
 llm = ChatOpenAI(
     model="deepseek/deepseek-chat",
     openai_api_key=api_key,
@@ -18,33 +20,37 @@ llm = ChatOpenAI(
     temperature=0.7
 )
 
-# 2. HELPER: The Advanced Text Cleaner
+# 2. HELPER: The Text Cleaner (FIXED)
 def clean_text(ai_response):
-    """Cleans AI response to ensure pure text output or real Python lists."""
+    """Cleans AI response to ensure pure text output."""
     try:
         content = ai_response.content if hasattr(ai_response, 'content') else ai_response
-        
         if isinstance(content, str):
+            # Attempt to parse JSON if it looks like a list string
             content = content.strip()
-            # Remove Markdown code blocks if present
+            # REMOVE MARKDOWN (The AI loves to add ```json ... ```)
             content = content.replace("```python", "").replace("```json", "").replace("```", "")
             
-            # If it looks like a list/dict, try to parse it into a real Object
-            if content.strip().startswith("[") or content.strip().startswith("{"):
+            # --- THE FIX FOR LISTS ---
+            if content.startswith("[") or content.startswith("{"):
                 try:
-                    return json.loads(content) 
+                    return json.loads(content) # Return object if JSON
                 except:
                     try:
+                        # Fallback for Python-style lists (single quotes)
                         return ast.literal_eval(content)
                     except:
                         pass
-                        
         return str(content)
     except:
         return str(ai_response)
 
-# 3. HELPER: Token Compressor (DISABLED)
+# 3. HELPER: Token Compressor (DISABLED FOR STABILITY)
 def smart_compress(context, instruction, target_token=500):
+    """
+    Pass-through function. We disabled LLMLingua to prevent 
+    Streamlit Cloud crashes (Out of Memory errors).
+    """
     return context
 
 # =========================================================
@@ -53,6 +59,7 @@ def smart_compress(context, instruction, target_token=500):
 def strategist_node(pain_points, trending_topics):
     st.write("...⚙️ The Strategic Ideation Engine is analyzing...")
     
+    # --- PROMPT UNCHANGED ---
     prompt = f"""
     Role: Act as a viral content strategist and SEO expert for a leading B2B tech publication.
     Think step by step
@@ -84,6 +91,7 @@ def strategist_node(pain_points, trending_topics):
 def architect_node(selected_idea):
     st.write("...📐 The Structural Architect is designing the blueprint...")
     
+    # --- PROMPT UNCHANGED ---
     prompt = f"""
     Role: Act as a professional content writer and editor expertise in technical field.
     
@@ -109,13 +117,15 @@ def architect_node(selected_idea):
     return clean_text(response)
 
 # =========================================================
-# 🏭 STAGE 3: THE CONTENT FACTORY
+# 🏭 STAGE 3: THE CONTENT FACTORY (Iterative Generation)
 # =========================================================
 def content_factory_node(article_title, outline):
     full_article = f"# {article_title}\n\n"
     
     # --- Prompt 1: The Introduction ---
     st.write("...🏭 Factory: Forging the Introduction...")
+    
+    # --- PROMPT UNCHANGED ---
     intro_prompt = f"""
     Role: Act as a professional content writer, SEO expert, and design thinker.
     Think step by step
@@ -131,8 +141,10 @@ def content_factory_node(article_title, outline):
     # --- Prompt 2: Body Section 1 ---
     st.write("...🏭 Factory: Building Section 1 (The Crisis)...")
     context_so_far = f"Title: {article_title}\nIntro: {intro_content}"
+    # Compress context if possible
     compressed_context = smart_compress(context_so_far, "Generate Body Section 1")
     
+    # --- PROMPT UNCHANGED ---
     body1_prompt = f"""
     Role: Professional content writer.
     Think step by step
@@ -148,6 +160,7 @@ def content_factory_node(article_title, outline):
     context_so_far += f"\nSection 1: {body1_content}"
     compressed_context = smart_compress(context_so_far, "Generate Body Section 2")
     
+    # --- PROMPT UNCHANGED ---
     body2_prompt = f"""
     Role: Professional content writer.
     Think step by step
@@ -163,6 +176,7 @@ def content_factory_node(article_title, outline):
     context_so_far += f"\nSection 2: {body2_content}"
     compressed_context = smart_compress(context_so_far, "Generate Body Section 3")
     
+    # --- PROMPT UNCHANGED ---
     body3_prompt = f"""
     Role: Professional content writer.
     Think step by step
@@ -178,6 +192,7 @@ def content_factory_node(article_title, outline):
     context_so_far += f"\nSection 3: {body3_content}"
     compressed_context = smart_compress(context_so_far, "Generate Conclusion")
     
+    # --- PROMPT UNCHANGED ---
     conc_prompt = f"""
     Role: Professional content writer.
     Think step by step
@@ -200,6 +215,7 @@ def polish_node(full_draft):
     # We compress the whole article because it's long now
     compressed_draft = smart_compress(full_draft, "Generate SEO keywords and Social Captions", target_token=1000)
     
+    # --- PROMPT UNCHANGED ---
     prompt = f"""
     Role: Professional content writer and SEO expert.
     Think step by step
