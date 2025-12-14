@@ -1,6 +1,7 @@
 import streamlit as st
 import strategist
 import time
+import ast
 
 # 1. CONFIG
 st.set_page_config(page_title="ACE Engine", page_icon="⚡", layout="wide")
@@ -12,7 +13,7 @@ if "selected_idea_text" not in st.session_state: st.session_state.selected_idea_
 if "final_article" not in st.session_state: st.session_state.final_article = ""
 if "seo_kit" not in st.session_state: st.session_state.seo_kit = ""
 
-# 3. THEME ENGINE (Updated for Dark/Light)
+# 3. THEME ENGINE
 def apply_theme(theme_choice):
     if theme_choice == "Dark Mode":
         st.markdown("""<style>.stApp { background-color: #0e1117; color: white; }</style>""", unsafe_allow_html=True)
@@ -24,23 +25,18 @@ def apply_theme(theme_choice):
 # 4. SIDEBAR
 with st.sidebar:
     st.title("🎛️ ACE Control")
-    
-    # Theme Selector
     theme = st.selectbox("🎨 Theme", ["Default (System)", "Dark Mode", "Light Mode", "Custom (Green)"])
     apply_theme(theme)
     st.divider()
 
-    # Inputs
     st.subheader("1. Strategy Inputs")
     niche = st.text_input("Topic / Niche", "Artificial Intelligence")
     audience = st.text_input("Audience", "University Students")
     
     st.subheader("2. Pilot Mode")
     pilot_mode = st.radio("Mode:", ["Auto-Pilot 🚀", "Manual Control 🕹️"])
-    
     st.divider()
     
-    # Dynamic Buttons
     if pilot_mode == "Auto-Pilot 🚀":
         action_btn = st.button("🚀 Launch Sequence", type="primary", use_container_width=True)
     else:
@@ -53,7 +49,6 @@ with st.sidebar:
 
 # 5. MAIN CONTENT
 st.title("⚡ ACE: Automated Content Engine")
-st.markdown("### Build viral, expert-level articles in seconds.")
 st.markdown("---")
 
 # AUTO PILOT LOGIC
@@ -62,7 +57,7 @@ if pilot_mode == "Auto-Pilot 🚀" and action_btn:
         st.write("🧠 Strategizing...")
         ideas = strategist.strategist_node(niche, audience)
         
-        # Safe extraction of first idea
+        # Check if ideas is a list; if not, try to fix it or fallback
         if isinstance(ideas, list) and len(ideas) > 0:
             best_idea = ideas[0]
         else:
@@ -84,19 +79,28 @@ if pilot_mode == "Auto-Pilot 🚀" and action_btn:
 if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.step == "idle":
     with st.spinner("🧠 Scanning..."):
         raw_ideas = strategist.strategist_node(niche, audience)
-        # Ensure it is a list
+        
+        # --- ROBUST LIST CHECKER ---
+        final_list = []
         if isinstance(raw_ideas, list):
-            st.session_state.generated_ideas = raw_ideas
-        else:
-            st.session_state.generated_ideas = [str(raw_ideas)]
+            final_list = raw_ideas
+        elif isinstance(raw_ideas, str):
+            # Try to parse stringified list
+            try:
+                final_list = ast.literal_eval(raw_ideas)
+                if not isinstance(final_list, list):
+                    final_list = [raw_ideas]
+            except:
+                final_list = [raw_ideas]
+        
+        st.session_state.generated_ideas = final_list
         st.session_state.step = "strategy_done"
         st.rerun()
 
-# MANUAL LOGIC - Step B: Selection (The Fix)
+# MANUAL LOGIC - Step B: Selection
 if pilot_mode == "Manual Control 🕹️" and st.session_state.step == "strategy_done":
     st.info("👇 Select your content strategy:")
     
-    # Check if we actually have ideas to show
     if st.session_state.generated_ideas:
         user_choice = st.radio(
             "Available Angles:",
@@ -104,10 +108,9 @@ if pilot_mode == "Manual Control 🕹️" and st.session_state.step == "strategy
             index=0
         )
         st.session_state.selected_idea_text = user_choice
+        st.success("Target Locked. Click 'Write Article' in the sidebar.")
     else:
         st.error("No ideas generated. Try clicking 'Scan' again.")
-        
-    st.success("Target Locked. Click 'Write Article' in the sidebar.")
 
 # MANUAL LOGIC - Step C: Write
 if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.step == "strategy_done":
@@ -130,7 +133,7 @@ if pilot_mode == "Manual Control 🕹️" and action_btn and st.session_state.st
 # DISPLAY RESULT
 if st.session_state.step == "writing_done":
     image_prompt = f"cinematic high quality editorial photo of {niche}, minimal, 8k"
-    st.image(f"https://image.pollinations.ai/prompt/{image_prompt}", caption="Cover Art", use_container_width=True)
+    st.image(f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){image_prompt}", caption="Cover Art", use_container_width=True)
     
     st.markdown(st.session_state.final_article)
     st.divider()
