@@ -7,37 +7,43 @@ try:
     # Try to get the key from Streamlit Cloud Secrets
     api_key = st.secrets["GOOGLE_API_KEY"]
 except:
-    # If secrets are missing, try a local fallback or stop
-    # This prevents the app from crashing immediately if the key is wrong
     st.error("🚨 API Key missing! Please add GOOGLE_API_KEY to Streamlit Secrets.")
     st.stop()
 
-# Use the specific 1.5 Flash model (More stable for free tier)
+# --- CRITICAL FIX: USING THE VERIFIED MODEL NAME ---
+# "gemini-flash-latest" is the alias that appeared in your diagnostic test.
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash-latest",
+    model="gemini-flash-latest",
     google_api_key=api_key
 )
 
-# --- 🧹 THE CLEANER FUNCTION (Fixes formatting issues) ---
+# --- 🧹 THE CLEANER FUNCTION (Fixes the "[{...}]" mess) ---
 def clean_text(ai_response):
     try:
         content = ai_response.content
-        # If it's already a clean string, return it
+        
+        # Case 1: It's already perfect text
         if isinstance(content, str): 
             return content
-        # If it's a list (the "messy" output), extract just the text
+            
+        # Case 2: It's a list of parts (the "messy" output)
         if isinstance(content, list):
             full_text = ""
             for part in content:
-                if 'text' in part: 
+                # Extract text if it exists, otherwise skip
+                if isinstance(part, dict) and 'text' in part:
                     full_text += part['text']
+                elif isinstance(part, str):
+                    full_text += part
             return full_text
-        # Fallback
+            
+        # Case 3: Fallback
         return str(content)
-    except:
-        return str(ai_response)
+    except Exception as e:
+        # If cleaning fails, return the raw string so we can at least see it
+        return str(ai_response.content)
 
-# --- 🧠 THE NODE FUNCTIONS (With Debugging) ---
+# --- 🧠 THE NODE FUNCTIONS ---
 
 def strategist_node(niche, audience):
     st.write("...Strategist connecting to Google...")
@@ -47,9 +53,8 @@ def strategist_node(niche, audience):
         response = llm.invoke(prompt)
         return clean_text(response)
     except Exception as e:
-        # THIS IS THE FIX: Print the actual error to the screen
         st.error(f"❌ Strategist Error: {e}")
-        return "Error: Could not generate strategies. Please check API Quota."
+        return "Error: Could not generate strategies."
 
 def architect_node(strategist_output):
     st.write("...Architect analyzing...")
@@ -60,7 +65,7 @@ def architect_node(strategist_output):
     
     Task:
     1. Select the SINGLE best article idea.
-    2.  Write a comprehensive outline for that article (Introduction, 3 Body Sections, Conclusion).
+    2. Write a comprehensive outline for that article.
     """
     
     try:
@@ -82,7 +87,7 @@ def writer_node(outline):
     - Use engaging, professional tone.
     - Use Markdown formatting (headings, bold text).
     - Expand every bullet point into full paragraphs.
-    - Use Hashtags and SEO keywords to enhance the article visibility.
+    - Use Hashtags and SEO keywords.
     """
     
     try:
@@ -94,4 +99,3 @@ def writer_node(outline):
 
 if __name__ == "__main__":
     print("This script is ready for Streamlit.")
-
