@@ -1,112 +1,88 @@
 import streamlit as st
 import strategist
-import urllib.parse  # Ensures image URLs don't break
+import urllib.parse
+import requests
+import io
+from PIL import Image
 
-# 1. CONFIGURATION
-st.set_page_config(
-    page_title="ACE Engine",
-    page_icon="⚡",
-    layout="wide"
-)
+# 1. CONFIG
+st.set_page_config(page_title="ACE Engine", page_icon="⚡", layout="wide")
 
-# 2. THEME ENGINE
-def apply_theme(theme_choice):
-    if theme_choice == "Dark Mode":
-        st.markdown("""<style>.stApp { background-color: #0e1117; color: white; }</style>""", unsafe_allow_html=True)
-    elif theme_choice == "Light Mode":
-        st.markdown("""<style>.stApp { background-color: #ffffff; color: black; }</style>""", unsafe_allow_html=True)
-    elif theme_choice == "Hacker Green":
-        st.markdown("""<style>.stApp { background-color: #002b36; color: #859900; }</style>""", unsafe_allow_html=True)
+# 2. IMAGE ENGINE (Robust)
+def get_image(prompt_text):
+    """Tries HF first, falls back to Pollinations safely."""
+    
+    # Clean prompt for URLs
+    safe_prompt = urllib.parse.quote(prompt_text[:100]) # Keep it short for URLs
+    
+    # Method A: Hugging Face (Best Quality)
+    if "HF_TOKEN" in st.secrets:
+        try:
+            API_URL = "[https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0](https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0)"
+            headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
+            payload = {"inputs": f"editorial photo of {prompt_text}, high quality"}
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=5)
+            if response.status_code == 200:
+                return Image.open(io.BytesIO(response.content))
+        except:
+            pass # Fail silently to fallback
 
-# 3. SIDEBAR CONTROLS
+    # Method B: Pollinations (Backup)
+    # We return the URL string, Streamlit handles the rest
+    return f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_prompt}?width=800&height=400&nologo=true"
+
+# 3. SIDEBAR
 with st.sidebar:
     st.title("🎛️ ACE Control")
-    theme = st.selectbox("🎨 Interface Theme", ["Default (System)", "Dark Mode", "Light Mode", "Hacker Green"])
-    apply_theme(theme)
+    niche = st.text_input("Niche", "Artificial Intelligence")
+    audience = st.text_input("Audience", "University Students")
     st.divider()
+    btn = st.button("🚀 Auto-Pilot Launch", type="primary", use_container_width=True)
 
-    st.subheader("📍 Target Parameters")
-    niche = st.text_input("Topic / Niche", "Artificial Intelligence")
-    audience = st.text_input("Target Audience", "University Students")
-    
-    st.divider()
-    generate_btn = st.button("🚀 Launch Auto-Pilot", type="primary", use_container_width=True)
-    st.caption("ACE will analyze, structure, write, and optimize content automatically.")
-
-# 4. MAIN INTERFACE
+# 4. MAIN APP
 st.title("⚡ ACE: Automated Content Engine")
-st.markdown("### Build viral, expert-level articles in seconds.")
-st.markdown("---")
 
-# 5. EXECUTION LOGIC
-if generate_btn:
-    result_container = st.container()
-    
-    with st.status("🚀 ACE Systems Engaged...", expanded=True) as status:
+if btn:
+    with st.status("🚀 System Running...", expanded=True) as status:
         
-        # --- STEP 1: STRATEGY ---
-        st.write("🧠 PHASE 1: Strategic Analysis...")
+        # 1. Strategy
         try:
             ideas = strategist.strategist_node(niche, audience)
-            # Smart Selection: If it's a list, take the first. If string, take it all.
-            if isinstance(ideas, list) and len(ideas) > 0:
-                best_idea = ideas[0]
-            else:
-                best_idea = str(ideas)
-            st.info(f"Selected Angle: {str(best_idea)[:80]}...")
-        except Exception as e:
-            st.error(f"Strategy Error: {e}")
-            st.stop()
-
-        # --- STEP 2: ARCHITECTURE ---
-        st.write("📐 PHASE 2: Structural Blueprinting...")
-        try:
-            outline = strategist.architect_node(best_idea)
-        except Exception as e:
-            st.error(f"Architect Error: {e}")
+            best_idea = ideas[0] if isinstance(ideas, list) else str(ideas)
+            st.info(f"Selected Angle: {best_idea}")
+        except:
+            st.error("Strategy Failed. Try a simpler topic.")
             st.stop()
             
-        # --- STEP 3: WRITING ---
-        st.write("🏭 PHASE 3: Content Generation (This may take 30-60s)...")
+        # 2. Architecture
         try:
-            title_context = f"{niche} for {audience}"
-            full_article = strategist.content_factory_node(title_context, outline)
-        except Exception as e:
-            st.error(f"Writing Error: {e}")
-            st.stop()
-
-        # --- STEP 4: POLISHING ---
-        st.write("✨ PHASE 4: SEO & Final Polish...")
-        try:
-            seo_kit = strategist.polish_node(full_article)
-        except Exception as e:
-            st.error(f"Polish Error: {e}")
-            st.stop()
-
-        status.update(label="✅ Mission Complete!", state="complete", expanded=False)
-
-    # 6. DISPLAY RESULTS
-    with result_container:
-        
-        # IMAGE FIX: Encode URL to prevent crashes
-        try:
-            raw_prompt = f"editorial photo of {niche}, minimal, high quality"
-            encoded_prompt = urllib.parse.quote(raw_prompt) 
-            image_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){encoded_prompt}"
-            st.image(image_url, caption=f"AI Generated Art for {niche}", use_container_width=True)
+            # Now returns a LIST of unique headers
+            headers = strategist.architect_node(best_idea)
+            st.write(f"Blueprint: {headers}")
         except:
-            st.warning("⚠️ Could not generate cover image.")
+            headers = ["The Problem", "The Solution", "Key Examples", "Conclusion"]
+            
+        # 3. Writing
+        full_article = strategist.content_factory_node(best_idea, headers)
+        
+        # 4. Polish
+        seo_kit = strategist.polish_node(full_article)
+        
+        # 5. Image (Parallel)
+        st.write("🎨 Generating Visuals...")
+        img_result = get_image(niche)
+        
+        status.update(label="Done!", state="complete", expanded=False)
 
-        st.subheader("📄 The Article")
-        st.markdown(str(full_article))
+    # 5. RESULTS DISPLAY
+    if isinstance(img_result, str):
+        st.image(img_result, caption="Cover Art", use_container_width=True)
+    elif img_result:
+        st.image(img_result, caption="Cover Art", use_container_width=True)
         
-        st.divider()
-        
-        st.subheader("📊 SEO Strategy Kit")
-        st.markdown(str(seo_kit))
-        
-        final_payload = str(full_article) + "\n\n---\n\n" + str(seo_kit)
-        st.download_button("📥 Download Full Article Package", final_payload, "ace_content.md", "text/markdown", type="primary", use_container_width=True)
-
-else:
-    st.info("👈 Enter your topic in the sidebar and click 'Launch Auto-Pilot' to begin.")
+    st.markdown(full_article)
+    st.divider()
+    st.markdown(seo_kit)
+    
+    payload = str(full_article) + "\n\n" + str(seo_kit)
+    st.download_button("📥 Download", payload, "article.md")
