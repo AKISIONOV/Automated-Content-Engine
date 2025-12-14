@@ -18,7 +18,7 @@ llm = ChatOpenAI(
     openai_api_key=api_key,
     openai_api_base=base_url,
     temperature=0.85, # Slightly higher for creativity
-    max_tokens=15000  # Maximized for length
+    max_tokens=5000  # Maximized for length
 )
 
 # 3. HELPER: Clean Text
@@ -159,3 +159,4 @@ def polish_node(full_draft):
     Format: Markdown.
     """
     return clean_text(llm.invoke(prompt))
+
