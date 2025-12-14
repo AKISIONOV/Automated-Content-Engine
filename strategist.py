@@ -9,7 +9,7 @@ except:
     api_key = "LOCAL_KEY_IF_NEEDED"
 
 llm = ChatGoogleGenerativeAI(
-    model="gemini-flash-latest",
+    model="gemini-1.5-flash",
     google_api_key=api_key
 )
 
@@ -86,3 +86,4 @@ def writer_node(outline):
 
 if __name__ == "__main__":
     print("⚠️ NOTE: This script expects to be run by the Streamlit App.")
+
