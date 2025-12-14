@@ -2,5 +2,3 @@ streamlit
 langchain
 langchain-openai
 requests
-xhtml2pdf
-markdown
