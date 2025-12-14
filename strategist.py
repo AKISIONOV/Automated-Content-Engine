@@ -1,9 +1,9 @@
 import streamlit as st
 import json
-import ast # <--- NEW: Helps parse Python-style lists
+import ast # <--- CRITICAL FIX: Parses Python-style lists
 from langchain_openai import ChatOpenAI
 
-# 1. SETUP: Connect to OpenRouter / DeepSeek
+# 1. SETUP: Connect to OpenRouter
 try:
     api_key = st.secrets["OPENROUTER_API_KEY"]
     base_url = st.secrets["OPENROUTER_BASE_URL"]
@@ -26,18 +26,18 @@ def clean_text(ai_response):
         
         if isinstance(content, str):
             content = content.strip()
+            # Remove Markdown code blocks if present
+            content = content.replace("```python", "").replace("```json", "").replace("```", "")
             
             # If it looks like a list/dict, try to parse it into a real Object
-            if content.startswith("[") or content.startswith("{"):
+            if content.strip().startswith("[") or content.strip().startswith("{"):
                 try:
-                    # Method 1: Try Standard JSON (Double quotes)
                     return json.loads(content) 
                 except:
                     try:
-                        # Method 2: Try Python Literal (Single quotes - The Fix for your bug)
                         return ast.literal_eval(content)
                     except:
-                        pass # If both fail, return as string
+                        pass
                         
         return str(content)
     except:
@@ -53,7 +53,6 @@ def smart_compress(context, instruction, target_token=500):
 def strategist_node(pain_points, trending_topics):
     st.write("...⚙️ The Strategic Ideation Engine is analyzing...")
     
-    # YOUR ORIGINAL PROMPT (UNCHANGED)
     prompt = f"""
     Role: Act as a viral content strategist and SEO expert for a leading B2B tech publication.
     Think step by step
