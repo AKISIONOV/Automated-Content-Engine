@@ -11,17 +11,18 @@ except:
     st.error("🚨 Secrets Missing! Add OPENROUTER_API_KEY and OPENROUTER_BASE_URL to secrets.")
     st.stop()
 
-# 2. CONFIGURATION (4k Token Limit to prevent Cost Errors)
+# 2. CONFIGURATION (Safe Token Limit)
 llm = ChatOpenAI(
     model="deepseek/deepseek-chat",
     openai_api_key=api_key,
     openai_api_base=base_url,
-    temperature=0.85, # Higher creativity for viral content
-    max_tokens=4000
+    temperature=0.8,
+    max_tokens=3000 # Keeps you within free tier limits
 )
 
 # 3. HELPER: Clean Text
 def clean_text(ai_response, parse_json=False):
+    """Parses AI output into Strings or Lists safely."""
     try:
         content = ai_response.content if hasattr(ai_response, 'content') else ai_response
         if not parse_json: return str(content)
@@ -37,63 +38,51 @@ def clean_text(ai_response, parse_json=False):
     except:
         return str(ai_response)
 
-# =========================================================
-# 🧬 STAGE 1: STRATEGIST
-# =========================================================
+# 4. STRATEGY NODE
 def strategist_node(pain_points, trending_topics):
-    st.write("...⚙️ Strategist: Analyzing Market Angles...")
+    st.write("...⚙️ Strategist: Analyzing...")
     prompt = f"""
-    Act as a viral content strategist.
-    Goal: Generate 5 high-impact article titles that solve: {pain_points}
-    Context: {trending_topics}
-    
+    Act as a content strategist.
+    Goal: Generate 5 unique article titles for: {pain_points} regarding {trending_topics}.
     Output Format: ONLY a Python list of strings.
-    Example: ["Title 1...", "Title 2..."]
+    Example: ["Title 1", "Title 2"]
     """
     response = llm.invoke(prompt)
     return clean_text(response, parse_json=True)
 
-# =========================================================
-# 📐 STAGE 2: DYNAMIC ARCHITECT (Unique Headers)
-# =========================================================
+# 5. ARCHITECT NODE
 def architect_node(selected_idea):
-    st.write("...📐 Architect: Designing Unique Structure...")
+    st.write("...📐 Architect: Designing...")
     prompt = f"""
-    Act as a Senior Editor. 
-    Article Idea: "{selected_idea}"
-    
-    Task: Create a unique, engaging outline.
-    RULES:
-    1. Do NOT use generic headers like "Introduction" or "Body Section 1".
-    2. Create 4-5 catchy, descriptive headers that tell a story.
-    3. Return ONLY the headers as a Python List.
+    Act as an Editor.
+    Idea: "{selected_idea}"
+    Task: Create 4 unique, catchy section headers (No 'Introduction' or generic terms).
+    Output Format: ONLY a Python list of strings.
     """
     response = llm.invoke(prompt)
     return clean_text(response, parse_json=True) 
 
-# =========================================================
-# 🏭 STAGE 3: CONTENT FACTORY (Real Content)
-# =========================================================
+# 6. WRITING NODE
 def content_factory_node(article_title, outline_headers):
-    # Fallback if AI fails to give a list
+    # Fail-safe if headers are broken
     if isinstance(outline_headers, str):
-        outline_headers = ["The Challenge", "The Solution", "Practical Steps", "Future Outlook"]
+        outline_headers = ["The Core Issue", "Why It Matters", "The Solution", "Key Takeaways"]
         
     full_article = f"# {article_title}\n\n"
     
-    # 1. Intro
-    st.write("...🏭 Factory: Writing Viral Hook...")
-    intro = llm.invoke(f"Write a viral hook introduction for '{article_title}'. Use a Storytelling approach.")
+    # Intro
+    st.write("...🏭 Factory: Writing Hook...")
+    intro = llm.invoke(f"Write a viral hook introduction for '{article_title}'.")
     full_article += f"### Introduction\n{clean_text(intro)}\n\n"
     
-    # 2. Body Sections
+    # Body
     context = str(intro)
     for header in outline_headers:
         st.write(f"...🏭 Factory: Writing section '{header}'...")
         section_prompt = f"""
-        Write the article section for the header: "{header}".
+        Write the section "{header}".
         Context so far: {context[-500:]}
-        Tone: Engaging, helpful, authoritative.
+        Tone: Engaging and authoritative.
         """
         section_content = clean_text(llm.invoke(section_prompt))
         full_article += f"### {header}\n{section_content}\n\n"
@@ -101,16 +90,11 @@ def content_factory_node(article_title, outline_headers):
         
     return full_article
 
-# =========================================================
-# ✨ STAGE 4: POLISH
-# =========================================================
+# 7. POLISH NODE
 def polish_node(full_draft):
     st.write("...✨ SEO Expert: Optimizing...")
     prompt = f"""
-    Generate an SEO Kit for this article.
-    1. 5 High-Traffic Keywords
-    2. Meta Description , X (Twitter)
-    3. LinkedIn Post
+    Generate an SEO Kit (5 Keywords, Meta Description, LinkedIn Post).
+    Context: {full_draft[:1000]}
     """
     return clean_text(llm.invoke(prompt))
-
