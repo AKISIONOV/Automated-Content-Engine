@@ -12,7 +12,7 @@ except:
 
 # 2. CONFIGURATION (Gemini Flash is FREE and Fast)
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
+    model="gemini-1.5-flash-latest",
     google_api_key=api_key,
     temperature=0.8
 )
@@ -167,6 +167,7 @@ def polish_node(full_draft):
     Format: Markdown.
     """
     return clean_text(llm.invoke(prompt))
+
 
 
 
