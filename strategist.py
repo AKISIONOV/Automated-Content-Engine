@@ -1,24 +1,20 @@
 import streamlit as st
 import json
 import ast 
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # 1. SETUP
 try:
-    api_key = st.secrets["OPENROUTER_API_KEY"]
-    base_url = st.secrets["OPENROUTER_BASE_URL"]
+    api_key = st.secrets["GOOGLE_API_KEY"]
 except:
-    st.error("🚨 Secrets Missing! Add OPENROUTER_API_KEY and OPENROUTER_BASE_URL to secrets.")
+    st.error("🚨 Secrets Missing! Add GOOGLE_API_KEY to secrets.")
     st.stop()
 
-# 2. CONFIGURATION
-# Optimized for high-quality, long-form content
-llm = ChatOpenAI(
-    model="deepseek/deepseek-chat",
-    openai_api_key=api_key,
-    openai_api_base=base_url,
-    temperature=0.85, # Slightly higher for creativity
-    max_tokens=5000  # Maximized for length
+# 2. CONFIGURATION (Gemini Flash is FREE and Fast)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    google_api_key=api_key,
+    temperature=0.8
 )
 
 # 3. HELPER: Clean Text
@@ -159,4 +155,5 @@ def polish_node(full_draft):
     Format: Markdown.
     """
     return clean_text(llm.invoke(prompt))
+
 
