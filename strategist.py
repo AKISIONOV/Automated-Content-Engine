@@ -17,20 +17,32 @@ llm = ChatGoogleGenerativeAI(
     temperature=0.8
 )
 
-# 3. HELPER: Clean Text
+# 3. HELPER: Clean Text (Gemini Optimized)
 def clean_text(ai_response, parse_json=False):
     """Parses AI output into Strings or Lists safely."""
     try:
-        content = ai_response.content if hasattr(ai_response, 'content') else ai_response
-        if not parse_json: return str(content)
+        # Gemini returns content differently sometimes, this handles it
+        content = ai_response.content if hasattr(ai_response, 'content') else str(ai_response)
+        
+        if not parse_json: 
+            return str(content)
         
         if isinstance(content, str):
+            # Clean markdown code blocks
             content = content.strip().replace("```python", "").replace("```json", "").replace("```", "")
-            if content.startswith("[") or content.startswith("{"):
-                try: return json.loads(content)
-                except: 
-                    try: return ast.literal_eval(content)
-                    except: pass
+            
+            # --- THE FIX: Find list inside the text (Gemini adds chatty intros) ---
+            if "[" in content and "]" in content:
+                start = content.find("[")
+                end = content.rfind("]") + 1
+                list_str = content[start:end]
+                try:
+                    return json.loads(list_str)
+                except:
+                    try:
+                        return ast.literal_eval(list_str)
+                    except:
+                        pass
         return str(content)
     except:
         return str(ai_response)
@@ -155,5 +167,6 @@ def polish_node(full_draft):
     Format: Markdown.
     """
     return clean_text(llm.invoke(prompt))
+
 
 
