@@ -5,7 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 # 1. SETUP
 try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
+    api_key = st.secrets["ACE_SECRET_KEY"]
 except:
     st.error("🚨 Secrets Missing! Add GOOGLE_API_KEY to secrets.")
     st.stop()
@@ -167,6 +167,7 @@ def polish_node(full_draft):
     Format: Markdown.
     """
     return clean_text(llm.invoke(prompt))
+
 
 
 
