@@ -28,7 +28,7 @@ def get_image_bytes(prompt_text):
         safe_prompt = urllib.parse.quote(f"editorial photo of {short_prompt}, high quality")
         
         # Pollinations URL (No Logo)
-        url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_prompt}?nologo=true&width=1024&height=512"
+        url = f"https://image.pollinations.ai/prompt/{safe_prompt}?nologo=true&width=1024&height=512"
         
         # Download with a strict timeout
         response = requests.get(url, timeout=5)
@@ -109,3 +109,4 @@ if btn:
         type="primary",
         use_container_width=True
     )
+
