@@ -7,7 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 try:
     api_key = st.secrets["ACE_SECRET_KEY"]
 except:
-    st.error("🚨 Secrets Missing! Add GOOGLE_API_KEY to secrets.")
+    st.error("🚨 Secrets Missing! Add ACE_SECRET_KEY to secrets.")
     st.stop()
 
 # 2. CONFIGURATION (Gemini Flash is FREE and Fast)
@@ -167,6 +167,7 @@ def polish_node(full_draft):
     Format: Markdown.
     """
     return clean_text(llm.invoke(prompt))
+
 
 
 
